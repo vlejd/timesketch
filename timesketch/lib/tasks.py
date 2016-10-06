@@ -80,3 +80,10 @@ def run_plaso(source_file_path, timeline_name, index_name, username=None):
     counter = frontend.ExportEvents(storage_reader, output_module)
 
     return dict(counter)
+
+@celery.task(track_started=True)
+def run_eccemotus():
+    # create empty db entry
+    # run eccemotus
+    # fill db entry
+    return True

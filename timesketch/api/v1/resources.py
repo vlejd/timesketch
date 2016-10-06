@@ -737,6 +737,29 @@ class UploadFileResource(ResourceMixin, Resource):
                 status_code=HTTP_STATUS_CODE_BAD_REQUEST)
 
 
+class EccemotusResource(ResourceMixin, Resource):
+    @login_required
+    def post(self, sketch_id):
+        # get parameters
+        # check db
+        # push celer.
+
+        name = u'eccemotus2'
+        from timesketch import create_celery_app
+        self.celery = create_celery_app()
+        celery_task = self.celery.AsyncResult(name)
+        from timesketch.lib.tasks import run_eccemotus
+        rett = run_eccemotus.apply_async([], task=name)
+        celery_task = self.celery.AsyncResult(name)
+        ret = {
+            "nodes": [{"id":0,"value":"dean_api","type":"user_name"},
+                      {"id":1,"value":"1234","type":"user_id"}],
+            "links":[{"source":0, "target":1, "type":"is",
+                      "events":[{"id":10,"timestamp":20}]}]}
+
+        return jsonify(ret)
+
+
 class TaskResource(ResourceMixin, Resource):
     """Resource to get information on celery task."""
     def __init__(self):

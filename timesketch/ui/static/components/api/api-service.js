@@ -188,6 +188,25 @@ limitations under the License.
             return $http.post(resource_url, params)
         };
 
+        this.eccemotus = function(sketch_id, query, filter, full=true) {
+            /**
+             * Execute query and filter on the datastore.
+             * @param sketch_id - The id for the sketch.
+             * @param query - A query string.
+             * @param filter - A JSON string with filters and a list of indices.
+             * @param aggtype - Type of aggregation.
+             * @returns A $http promise with two methods, success and error.
+             */
+            var resource_url = BASE_URL + sketch_id + '/eccemotus/';
+            var params = {
+                query: query,
+                filter: filter,
+                full: full
+            };
+            return $http.post(resource_url, params)
+        };
+
+
         this.aggregation = function(sketch_id, query, filter, aggtype) {
             /**
              * Execute query and filter on the datastore.
