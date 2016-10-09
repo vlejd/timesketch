@@ -59,6 +59,7 @@ from timesketch.lib.forms import AggregationForm
 from timesketch.lib.forms import SaveViewForm
 from timesketch.lib.forms import NameDescriptionForm
 from timesketch.lib.forms import EventAnnotationForm
+from timesketch.lib.forms import EccemotusForm
 from timesketch.lib.forms import ExploreForm
 from timesketch.lib.forms import UploadFileForm
 from timesketch.lib.forms import StoryForm
@@ -738,26 +739,34 @@ class UploadFileResource(ResourceMixin, Resource):
 
 
 class EccemotusResource(ResourceMixin, Resource):
+    """Resource to create and get eccemotus graph."""
     @login_required
     def post(self, sketch_id):
-        # get parameters
-        # check db
-        # push celer.
+        """Handles POST request to the resource.
 
-        name = u'eccemotus2'
-        from timesketch import create_celery_app
-        self.celery = create_celery_app()
-        celery_task = self.celery.AsyncResult(name)
-        from timesketch.lib.tasks import run_eccemotus
-        rett = run_eccemotus.apply_async([], task=name)
-        celery_task = self.celery.AsyncResult(name)
-        ret = {
-            "nodes": [{"id":0,"value":"dean_api","type":"user_name"},
-                      {"id":1,"value":"1234","type":"user_id"}],
-            "links":[{"source":0, "target":1, "type":"is",
-                      "events":[{"id":10,"timestamp":20}]}]}
+        Args:
+            sketch_id: Integer primary key for a sketch database model.
 
-        return jsonify(ret)
+        Returns:
+            json serialization of eccemotus graph.
+        """
+        # TODO(vlejd): check database
+        # TODO(vlejd): run in celery
+        form = EccemotusForm()
+        if form.validate_on_submit():
+            from timesketch.lib.tasks import run_eccemotus
+            query = form.query.data
+            filter_dict = form.filter.data
+            indices = filter_dict.get(u'indices', [])
+            query_dict = self.datastore.create_query_dict(
+                query,filter_dict, False)
+            print (query_dict)
+            if form.full.data:
+                query_dict = None
+            graph = run_eccemotus(self.datastore.client, indices, query_dict)
+            return jsonify(graph)
+
+        return abort(HTTP_STATUS_CODE_BAD_REQUEST)
 
 
 class TaskResource(ResourceMixin, Resource):

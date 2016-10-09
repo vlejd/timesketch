@@ -198,3 +198,10 @@ class StoryForm(BaseForm):
     title = StringField(u'Title', validators=[])
     content = StringField(
         u'Content', validators=[], widget=widgets.TextArea())
+
+
+class EccemotusForm(BaseForm):
+    """Form to handle eccemotus requests."""
+    filter = StringField(u'Filter', validators=[DataRequired()])
+    full = BooleanField(u'Full', validators=[DataRequired()])
+    query = StringField(u'Query')

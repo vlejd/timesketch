@@ -25,6 +25,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from eccemotus import eccemotus_lib as eccemotus
+except ImportError:
+    pass
+
 from timesketch import create_celery_app
 
 celery = create_celery_app()
@@ -82,8 +87,22 @@ def run_plaso(source_file_path, timeline_name, index_name, username=None):
     return dict(counter)
 
 @celery.task(track_started=True)
-def run_eccemotus():
-    # create empty db entry
-    # run eccemotus
-    # fill db entry
-    return True
+def run_eccemotus(client, indices, query_dict):
+    """Create a Celery task for creating eccemotus graph.
+
+    Events for eccemotus are extracted based on query_dict.
+
+    Args:
+        client: Elasticsearch client.
+        indices: List of elasticsearch indices.
+        query_dict: Dict representation of elasticsearch query.
+
+    Returns:
+        Dict serialized eccemotus graph.
+    """
+    # TODO(vlejd): save to database
+    generator = eccemotus.ElasticDataGenerator(
+        client, indices, query=query_dict, verbose=True)
+    graph = eccemotus.GetGraph(generator, True)
+
+    return graph.MinimalSerialize()

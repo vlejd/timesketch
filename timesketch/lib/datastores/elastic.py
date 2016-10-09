@@ -69,102 +69,7 @@ class ElasticSearchDataStore(datastore.DataStore):
         if not query:
             query = u''
 
-        query_dict = {
-            u'query': {
-                u'filtered': {
-                    u'query': {
-                        u'query_string': {
-                            u'query': query
-                        }
-                    }
-                }
-            },
-            u'sort': {
-                u'datetime': query_filter.get(u'order', u'asc')
-            }
-        }
-
-        if query_filter.get(u'star', None):
-            del query_dict[u'query'][u'filtered'][u'query']
-            query_dict[u'query'][u'filtered'][u'filter'] = {
-                u'nested': {
-                    u'path': u'timesketch_label',
-                    u'filter': {
-                        u'bool': {
-                            u'must': [
-                                {
-                                    u'term': {
-                                        u'timesketch_label.name': u'__ts_star'
-                                    }
-                                },
-                                {
-                                    u'term': {
-                                        u'timesketch_label.sketch_id': sketch_id
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-
-        if query_filter.get(u'events', None):
-            events = query_filter[u'events']
-            indices = {event[u'index'] for event in events}
-            events_list = [event[u'event_id'] for event in events]
-            del query_dict[u'query']
-            query_dict[u'query'] = {
-                u'ids': {
-                    u'values': events_list
-                }
-            }
-
-        if query_filter.get(u'time_start', None):
-            query_dict[u'query'][u'filtered'][u'filter'] = {
-                u'range': {
-                    u'datetime': {
-                        u'gte': query_filter[u'time_start'],
-                        u'lte': query_filter[u'time_end']
-                    }
-                }
-            }
-
-        if query_filter.get(u'exclude', None):
-            query_dict[u'filter'] = {
-                u'not': {
-                    u'terms': {
-                        u'data_type': query_filter[u'exclude']
-                    }
-                }
-            }
-
-        data_type_aggregation = {
-            u'data_type': {
-                u'terms': {
-                    u'field': u'data_type',
-                    u'size': 0}
-            }
-        }
-
-        if aggregations:
-            if isinstance(aggregations, dict):
-                if query_filter.get(u'exclude', None):
-                    aggregations = {
-                        u'exclude': {
-                            u'filter': {
-                                u'not': {
-                                    u'terms': {
-                                        u'data_type': query_filter[u'exclude']
-                                    }
-                                }
-                            },
-                            u'aggregations': aggregations
-                        },
-                        u'data_type': data_type_aggregation[u'data_type']
-                    }
-                query_dict[u'aggregations'] = aggregations
-        else:
-            query_dict[u'aggregations'] = data_type_aggregation
+        query_dict = self.create_query_dict(query, query_filter, aggregations)
 
         # Default search type for elasticsearch is query_then_fetch.
         if return_results:
@@ -282,3 +187,114 @@ class ElasticSearchDataStore(datastore.DataStore):
         index_name = unicode(index_name.decode(encoding=u'utf-8'))
         doc_type = unicode(doc_type.decode(encoding=u'utf-8'))
         return index_name, doc_type
+
+    def create_query_dict(self, query, query_filter, aggregations):
+        """
+        Create query dict based on string query, filters and aggregation.
+
+        Args:
+            query: Query string.
+            query_filter: Dictionary containing filters to apply.
+            aggregations: Dict of Elasticsearch aggregations.
+            return_results: Boolean indicating if results should be returned.
+        Returns:
+            Elasticsearch query dict.
+        """
+        query_dict = {
+            u'query': {
+                u'filtered': {
+                    u'query': {
+                        u'query_string': {
+                            u'query': query
+                        }
+                    }
+                }
+            },
+            u'sort': {
+                u'datetime': query_filter.get(u'order', u'asc')
+            }
+        }
+
+        if query_filter.get(u'star', None):
+            del query_dict[u'query'][u'filtered'][u'query']
+            query_dict[u'query'][u'filtered'][u'filter'] = {
+                u'nested': {
+                    u'path': u'timesketch_label',
+                    u'filter': {
+                        u'bool': {
+                            u'must': [
+                                {
+                                    u'term': {
+                                        u'timesketch_label.name': u'__ts_star'
+                                    }
+                                },
+                                {
+                                    u'term': {
+                                        u'timesketch_label.sketch_id': sketch_id
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+
+        if query_filter.get(u'events', None):
+            events = query_filter[u'events']
+            indices = {event[u'index'] for event in events}
+            events_list = [event[u'event_id'] for event in events]
+            del query_dict[u'query']
+            query_dict[u'query'] = {
+                u'ids': {
+                    u'values': events_list
+                }
+            }
+
+        if query_filter.get(u'time_start', None):
+            query_dict[u'query'][u'filtered'][u'filter'] = {
+                u'range': {
+                    u'datetime': {
+                        u'gte': query_filter[u'time_start'],
+                        u'lte': query_filter[u'time_end']
+                    }
+                }
+            }
+
+        if query_filter.get(u'exclude', None):
+            query_dict[u'filter'] = {
+                u'not': {
+                    u'terms': {
+                        u'data_type': query_filter[u'exclude']
+                    }
+                }
+            }
+
+        data_type_aggregation = {
+            u'data_type': {
+                u'terms': {
+                    u'field': u'data_type',
+                    u'size': 0}
+            }
+        }
+
+        if aggregations:
+            if isinstance(aggregations, dict):
+                if query_filter.get(u'exclude', None):
+                    aggregations = {
+                        u'exclude': {
+                            u'filter': {
+                                u'not': {
+                                    u'terms': {
+                                        u'data_type': query_filter[u'exclude']
+                                    }
+                                }
+                            },
+                            u'aggregations': aggregations
+                        },
+                        u'data_type': data_type_aggregation[u'data_type']
+                    }
+                query_dict[u'aggregations'] = aggregations
+        else:
+            query_dict[u'aggregations'] = data_type_aggregation
+
+        return query_dict
