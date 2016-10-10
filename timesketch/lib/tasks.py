@@ -15,6 +15,8 @@
 
 import os
 import sys
+import json
+import pprint
 
 from flask import current_app
 # We currently don't have plaso in our Travis setup. This is a workaround
@@ -31,8 +33,14 @@ except ImportError:
     pass
 
 from timesketch import create_celery_app
+from timesketch.models import db_session
+from timesketch.models.eccemotus import EccemotusGraph
+from timesketch.lib.datastores.elastic import ElasticSearchDataStore
 
 celery = create_celery_app()
+from celery.utils.log import get_task_logger
+logger = get_task_logger(__name__)
+
 
 
 def get_data_location():
@@ -87,7 +95,7 @@ def run_plaso(source_file_path, timeline_name, index_name, username=None):
     return dict(counter)
 
 @celery.task(track_started=True)
-def run_eccemotus(client, indices, query_dict):
+def run_eccemotus(host, port, indices, query_dict):
     """Create a Celery task for creating eccemotus graph.
 
     Events for eccemotus are extracted based on query_dict.
@@ -100,9 +108,14 @@ def run_eccemotus(client, indices, query_dict):
     Returns:
         Dict serialized eccemotus graph.
     """
-    # TODO(vlejd): save to database
+    es = ElasticSearchDataStore(host=host, port=port)
+    client = es.client
     generator = eccemotus.ElasticDataGenerator(
         client, indices, query=query_dict, verbose=True)
-    graph = eccemotus.GetGraph(generator, True)
-
-    return graph.MinimalSerialize()
+    eccemotus_graph = eccemotus.GetGraph(generator, True)
+    serialized_graph = eccemotus_graph.MinimalSerialize()
+    db_graph = EccemotusGraph.get_or_create(
+        indices=json.dumps(indices), query_dict=pprint.pformat(query_dict))
+    db_graph.data = json.dumps(serialized_graph)
+    db_session.commit()
+    db_graph.set_status(u'done')

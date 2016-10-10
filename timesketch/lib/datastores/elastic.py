@@ -69,7 +69,8 @@ class ElasticSearchDataStore(datastore.DataStore):
         if not query:
             query = u''
 
-        query_dict = self.create_query_dict(query, query_filter, aggregations)
+        query_dict = self.create_query_dict(
+            query, query_filter, aggregations, sketch_id=sketch_id)
 
         # Default search type for elasticsearch is query_then_fetch.
         if return_results:
@@ -188,15 +189,16 @@ class ElasticSearchDataStore(datastore.DataStore):
         doc_type = unicode(doc_type.decode(encoding=u'utf-8'))
         return index_name, doc_type
 
-    def create_query_dict(self, query, query_filter, aggregations):
+    def create_query_dict(
+        self, query, query_filter, aggregations, sketch_id=None):
         """
         Create query dict based on string query, filters and aggregation.
 
         Args:
+            aggregations: Dict of Elasticsearch aggregations.
             query: Query string.
             query_filter: Dictionary containing filters to apply.
-            aggregations: Dict of Elasticsearch aggregations.
-            return_results: Boolean indicating if results should be returned.
+            sketch_id: Sketch id or None.
         Returns:
             Elasticsearch query dict.
         """
@@ -214,6 +216,19 @@ class ElasticSearchDataStore(datastore.DataStore):
                 u'datetime': query_filter.get(u'order', u'asc')
             }
         }
+        must = [
+            {
+                u'term': {
+                    u'timesketch_label.name': u'__ts_star'
+                }
+            }
+        ]
+        if sketch_id is not None:
+            must.append({
+                u'term': {
+                    u'timesketch_label.sketch_id': sketch_id
+                }
+            })
 
         if query_filter.get(u'star', None):
             del query_dict[u'query'][u'filtered'][u'query']
@@ -222,18 +237,7 @@ class ElasticSearchDataStore(datastore.DataStore):
                     u'path': u'timesketch_label',
                     u'filter': {
                         u'bool': {
-                            u'must': [
-                                {
-                                    u'term': {
-                                        u'timesketch_label.name': u'__ts_star'
-                                    }
-                                },
-                                {
-                                    u'term': {
-                                        u'timesketch_label.sketch_id': sketch_id
-                                    }
-                                }
-                            ]
+                            u'must': must
                         }
                     }
                 }

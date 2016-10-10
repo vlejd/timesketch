@@ -30,6 +30,7 @@ POST /sketches/:sketch_id/views/
 import datetime
 import json
 import os
+import pprint
 import uuid
 
 from flask import abort
@@ -64,6 +65,7 @@ from timesketch.lib.forms import ExploreForm
 from timesketch.lib.forms import UploadFileForm
 from timesketch.lib.forms import StoryForm
 from timesketch.models import db_session
+from timesketch.models.eccemotus import EccemotusGraph
 from timesketch.models.sketch import Event
 from timesketch.models.sketch import SearchIndex
 from timesketch.models.sketch import Sketch
@@ -748,10 +750,8 @@ class EccemotusResource(ResourceMixin, Resource):
             sketch_id: Integer primary key for a sketch database model.
 
         Returns:
-            json serialization of eccemotus graph.
+            json serialization of eccemotus graph or empty dict.
         """
-        # TODO(vlejd): check database
-        # TODO(vlejd): run in celery
         form = EccemotusForm()
         if form.validate_on_submit():
             from timesketch.lib.tasks import run_eccemotus
@@ -760,11 +760,31 @@ class EccemotusResource(ResourceMixin, Resource):
             indices = filter_dict.get(u'indices', [])
             query_dict = self.datastore.create_query_dict(
                 query,filter_dict, False)
-            print (query_dict)
-            if form.full.data:
+
+            if form.full.raw_data[0]:
                 query_dict = None
-            graph = run_eccemotus(self.datastore.client, indices, query_dict)
-            return jsonify(graph)
+            else:
+                query_dict = query_dict[u'query']
+
+            graph = EccemotusGraph.get_or_create(
+                indices=json.dumps(indices),
+                query_dict=pprint.pformat(query_dict))
+            status = graph.get_status.status
+            if status == u'new' or status == u'pending':
+                graph.set_status(u'pending')
+                graph.grant_permission(permission=u'read', user=current_user)
+                graph.grant_permission(permission=u'write', user=current_user)
+                graph.grant_permission(permission=u'delete', user=current_user)
+                host = current_app.config[u'ELASTIC_HOST']
+                port = current_app.config[u'ELASTIC_PORT']
+                run_eccemotus.apply_async(
+                    (host, port, indices, query_dict),
+                    task_id=json.dumps(indices, query_dict))
+                return jsonify({})
+            elif status == u'done':
+                return jsonify(json.loads(graph.data))
+            else:
+                return jsonify({})
 
         return abort(HTTP_STATUS_CODE_BAD_REQUEST)
 

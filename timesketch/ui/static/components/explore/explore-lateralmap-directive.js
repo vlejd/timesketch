@@ -37,29 +37,29 @@
             },
             require: '^tsSearch',
             link: function(scope, element, attrs, ctrl) {
-                var tmp_data = {
-                    "nodes": [{"id":0,"value":"dean","type":"user_name"},
-                              {"id":1,"value":"1234","type":"user_id"}],
-                    "links":[{"source":0, "target":1, "type":"is",
-                              "events":[{"id":10,"timestamp":20}]}]};
-
-                scope.$watchGroup(['meta', 'showCharts'], function (newval, oldval) {
-                    if(scope.showCharts) {
-                        if(!scope.rendered){
-                          scope.rendered = true;
-                        timesketchApi.eccemotus(scope.sketchId, scope.query, scope.filter, true)
-                            .success(function(data) {
-                                console.log(data);
-                                scope.renderLateralMap(scope, data, element[0], ctrl);
-                            });
-                        }
-                    }
-                }, true);
-
                 // Handle window resize, and redraw the chart automatically.
                 $window.onresize = function() {
                     scope.$apply();
                 };
+                var buttonQuery = $('<button class="btn btn-default"><i class="fa fa-save"></i>Based on query</button>');
+                var buttonFull = $('<button class="btn btn-default"><i class="fa fa-save"></i>Full</button>');
+                var msg = $('<p id="lateral-message"><p>');
+                $(element[0]).append(buttonQuery);
+                $(element[0]).append(buttonFull);
+                $(element[0]).append(msg);
+
+                buttonQuery.click(function(){
+                    timesketchApi.eccemotus(scope.sketchId, scope.query, scope.filter, false)
+                        .success(function(data) {
+                            scope.handleLateralMap(scope, data, element[0], ctrl);
+                        });
+                });
+                buttonFull.click(function(){
+                    timesketchApi.eccemotus(scope.sketchId, scope.query, scope.filter, true)
+                        .success(function(data) {
+                            scope.handleLateralMap(scope, data, element[0], ctrl);
+                        });
+                });
 
                 var margin = { top: 50, right: 75, bottom: 0, left: 40 },
                     svgWidth = element[0].parentElement.parentElement.parentElement.offsetParent.offsetWidth - margin.left - margin.right;
@@ -67,18 +67,36 @@
                 scope.latheralMap = new LateralMap.Map(svgWidth, 900);
                 // Render the chart svg with D3.js
                 scope.renderLateralMap = renderLateralMap;
+                scope.handleLateralMap = handleLateralMap;
             }
         }
     });
 
+    function handleLateralMap(scope, data, element, ctrl){
+        $(element).find('svg').remove();
+        msg = $('#lateral-message');
+        if('nodes' in data){
+            msg.text('');
+            if(data.nodes.length==0){
+                msg.text('Graph is empty. Change your query please.');
+            }
+            else{
+                scope.renderLateralMap(scope, data, element, ctrl);
+            }
+        }
+        else{
+            msg.text('Computing, retrieve graph (click) later please.');
+        }
+    };
+
     function renderLateralMap(scope, data, element, ctrl){
-      scope.latheralMap.render(data, element);
-      scope.latheralMap.customLinkClick(function(d){
-        console.log(d);
-      });
-      scope.latheralMap.customNodeClick(function(d){
-        ctrl.search(d.value, scope.filter);
-      });
+        scope.latheralMap.render(data, element, true);
+        scope.latheralMap.customLinkClick(function(d){
+            console.log(d);
+        });
+        scope.latheralMap.customNodeClick(function(d){
+            ctrl.search(d.value, scope.filter);
+        });
     }
 
 })();
