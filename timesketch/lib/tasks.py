@@ -40,7 +40,7 @@ from timesketch.lib.datastores.elastic import ElasticSearchDataStore
 celery = create_celery_app()
 from celery.utils.log import get_task_logger
 logger = get_task_logger(__name__)
-
+celery.conf.CELERYD_FORCE_EXECV = True
 
 
 def get_data_location():
@@ -114,8 +114,11 @@ def run_eccemotus(host, port, indices, query_dict):
         client, indices, query=query_dict, verbose=True)
     eccemotus_graph = eccemotus.GetGraph(generator, True)
     serialized_graph = eccemotus_graph.MinimalSerialize()
-    db_graph = EccemotusGraph.get_or_create(
-        indices=json.dumps(indices), query_dict=pprint.pformat(query_dict))
-    db_graph.data = json.dumps(serialized_graph)
+    db_graph = EccemotusGraph.query.filter_by(
+        indices=unicode(json.dumps(indices)),
+        query_dict=unicode(pprint.pformat(query_dict)))
+    db_graph = db_graph.all()[0]
+    db_graph.data = unicode(json.dumps(serialized_graph))
     db_session.commit()
     db_graph.set_status(u'done')
+    db_session.remove()

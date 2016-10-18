@@ -767,8 +767,8 @@ class EccemotusResource(ResourceMixin, Resource):
                 query_dict = query_dict[u'query']
 
             graph = EccemotusGraph.get_or_create(
-                indices=json.dumps(indices),
-                query_dict=pprint.pformat(query_dict))
+                indices=unicode(json.dumps(indices)),
+                query_dict=unicode(pprint.pformat(query_dict)))
             status = graph.get_status.status
             if status == u'new' or status == u'pending':
                 graph.set_status(u'pending')
