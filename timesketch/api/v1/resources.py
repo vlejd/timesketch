@@ -766,9 +766,16 @@ class EccemotusResource(ResourceMixin, Resource):
             else:
                 query_dict = query_dict[u'query']
 
+            # The sorting is important, because indices came from html form as
+            # a list with unspecified ordering.
+            serialized_indices = unicode(json.dumps(sorted(indices)))
+            # pprint is apparently the only reasonable way how to unambiguously
+            # serialize nested dictionary. Other methods have undefined order
+            # of keys.
+            serialized_query_dict = unicode(pprint.pformat(query_dict))
             graph = EccemotusGraph.get_or_create(
-                indices=unicode(json.dumps(indices)),
-                query_dict=unicode(pprint.pformat(query_dict)))
+                indices=serialized_indices,
+                query_dict=serialized_query_dict)
             status = graph.get_status.status
             if status == u'new' or status == u'pending':
                 graph.set_status(u'pending')

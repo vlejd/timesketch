@@ -114,9 +114,15 @@ def run_eccemotus(host, port, indices, query_dict):
         client, indices, query=query_dict, verbose=True)
     eccemotus_graph = eccemotus.GetGraph(generator, True)
     serialized_graph = eccemotus_graph.MinimalSerialize()
+    # The sorting is important, because indices come from html form as a list
+    # with unspecified ordering.
+    serialized_indices = unicode(json.dumps(sorted(indices)))
+    # pprint is apparently the only reasonable way how to unambiguously
+    # serialize nested dictionary. Other methods hove undefined order of keys.
+    serialized_query_dict = unicode(pprint.pformat(query_dict))
     db_graph = EccemotusGraph.query.filter_by(
-        indices=unicode(json.dumps(indices)),
-        query_dict=unicode(pprint.pformat(query_dict)))
+        indices=serialized_indices,
+        query_dict=serialized_query_dict)
     db_graph = db_graph.all()[0]
     db_graph.data = unicode(json.dumps(serialized_graph))
     db_session.commit()
